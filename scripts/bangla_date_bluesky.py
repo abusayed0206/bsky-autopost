@@ -57,15 +57,15 @@ def load_fonts():
     
     try:
         title_font = ImageFont.truetype(font_path, 72)
-        date_font = ImageFont.truetype(font_path, 80)  # Reduced from 96 to 80
-        info_font = ImageFont.truetype(font_path, 52)  # Increased from 48 to 52
+        date_font = ImageFont.truetype(font_path, 110)  # Increased from 80 to 110
+        info_font = ImageFont.truetype(font_path, 68)  # Increased from 52 to 68
         small_font = ImageFont.truetype(font_path, 36)
         return title_font, date_font, info_font, small_font
     except Exception as e:
         print(f"Warning: Could not load primary font: {e}")
         print("Falling back to system fonts...")
-        return (get_fallback_font(72), get_fallback_font(80), 
-                get_fallback_font(52), get_fallback_font(36))
+        return (get_fallback_font(72), get_fallback_font(110), 
+                get_fallback_font(68), get_fallback_font(36))
 
 
 def get_bangla_date_info():
@@ -123,8 +123,8 @@ def create_bangla_date_image(output_path="bangla_date.png"):
     Create a dark-themed image with Bangla date information
     Similar styling to the reference React code with Bluesky embed style
     """
-    # Image dimensions
-    width, height = 1200, 800
+    # Image dimensions - 1080x1080 square
+    width, height = 1080, 1080
     
     # Dark theme colors (similar to reference code)
     bg_color = "#0f172a"  # slate-950
@@ -257,38 +257,92 @@ def create_bangla_date_image(output_path="bangla_date.png"):
             fill=accent_color
         )
     
-    # Content positioning - center vertically in the card
-    content_y = 280
-    
-    # Main date - "২৩ কার্তিক, ১৪৩২ বঙ্গাব্দ" (Line 1 - centered)
-    # Format: [date] [month], [year] বঙ্গাব্দ
-    # Using date instead of ordinal for cleaner look
-    date_text = f"{bangla_date_info['date']} {bangla_date_info['month']}, {bangla_date_info['year']} বঙ্গাব্দ"
-    date_bbox = draw.textbbox((0, 0), date_text, font=date_font)
-    date_width = date_bbox[2] - date_bbox[0]
-    date_x = (width - date_width) // 2
-    draw.text((date_x, content_y), date_text, font=date_font, fill=text_primary)
-    
-    content_y += 110
-    
-    # Weekday and Season in one line - "বারঃ শুক্রবার, ঋতুঃ হেমন্ত" (Line 2 - centered)
-    weekday_season_text = f"বারঃ {bangla_date_info['weekday']}, ঋতুঃ {bangla_date_info['season']}"
-    ws_bbox = draw.textbbox((0, 0), weekday_season_text, font=info_font)
-    ws_width = ws_bbox[2] - ws_bbox[0]
-    ws_x = (width - ws_width) // 2
-    draw.text((ws_x, content_y), weekday_season_text, font=info_font, fill=text_secondary)
+    # Content positioning - center block in the middle
+    # We'll render 3 lines:
+    # 1) "২৩ কার্তিক," (date + month, with comma)
+    # 2) "১৪৩২ বঙ্গাব্দ" (year + বঙ্গাব্দ)
+    # 3) "বারঃ রবিবার, ঋতুঃ হেমন্ত" with weekday and season highlighted
+    center_x = width // 2
+    # Calculate total height needed for the 3 lines with spacing
+    line_height_date = int(date_font.size * 1.2)
+    line_height_info = int(info_font.size * 1.2)
+    extra_spacing = 30  # Extra space between line 2 and 3
+    total_height = line_height_date + line_height_date + extra_spacing + line_height_info
+    # Center the block vertically
+    block_top = (height - total_height) // 2
+
+    # Line 1: date + month with trailing comma
+    line1 = f"{bangla_date_info['date']} {bangla_date_info['month']},"
+    b1 = draw.textbbox((0, 0), line1, font=date_font)
+    w1 = b1[2] - b1[0]
+    x1 = center_x - w1 // 2
+    y1 = block_top
+    draw.text((x1, y1), line1, font=date_font, fill=text_primary)
+
+    # Line 2: year + বঙ্গাব্দ
+    line2 = f"{bangla_date_info['year']} বঙ্গাব্দ"
+    b2 = draw.textbbox((0, 0), line2, font=date_font)
+    w2 = b2[2] - b2[0]
+    x2 = center_x - w2 // 2
+    y2 = y1 + line_height_date
+    draw.text((x2, y2), line2, font=date_font, fill=text_primary)
+
+    # Line 3: combined weekday and season with highlights (with extra spacing)
+    prefix1 = "বারঃ "
+    weekday = bangla_date_info['weekday']
+    comma = ", "
+    prefix2 = "ঋতুঃ "
+    season = bangla_date_info['season']
+
+    # Measure segments
+    p1_box = draw.textbbox((0, 0), prefix1, font=info_font)
+    p1_w = p1_box[2] - p1_box[0]
+    wd_box = draw.textbbox((0, 0), weekday, font=info_font)
+    wd_w = wd_box[2] - wd_box[0]
+    comma_box = draw.textbbox((0, 0), comma, font=info_font)
+    comma_w = comma_box[2] - comma_box[0]
+    p2_box = draw.textbbox((0, 0), prefix2, font=info_font)
+    p2_w = p2_box[2] - p2_box[0]
+    season_box = draw.textbbox((0, 0), season, font=info_font)
+    season_w = season_box[2] - season_box[0]
+
+    total_w = p1_w + wd_w + comma_w + p2_w + season_w
+    x_start = center_x - total_w // 2
+    y3 = y2 + line_height_date + extra_spacing
+
+    # Draw prefix1
+    draw.text((x_start, y3), prefix1, font=info_font, fill=text_secondary)
+    x_cursor = x_start + p1_w
+
+    # Draw weekday (highlight)
+    draw.text((x_cursor, y3), weekday, font=info_font, fill=accent_color)
+    x_cursor += wd_w
+
+    # Draw comma
+    draw.text((x_cursor, y3), comma, font=info_font, fill=text_secondary)
+    x_cursor += comma_w
+
+    # Draw prefix2
+    draw.text((x_cursor, y3), prefix2, font=info_font, fill=text_secondary)
+    x_cursor += p2_w
+
+    # Draw season (highlight)
+    draw.text((x_cursor, y3), season, font=info_font, fill=accent_color)
+
     
     # Save image
     img.save(output_path, 'PNG', quality=95)
     print(f"✅ Image saved successfully: {output_path}")
     
-    return output_path, date_text
+    # Compose date_text for caption (multi-line)
+    caption_date_lines = f"{line1}\n{line2}\n{prefix1}{weekday}, {prefix2}{season}"
+    return output_path, caption_date_lines, bangla_date_info
 
 
 
-def post_to_bluesky(image_path, date_text):
+def post_to_bluesky(image_path, date_text, bangla_date_info):
     """
-    Post the image to Bluesky
+    Post the image to Bluesky with rich text facets for hashtags
     """
     # Get credentials from environment
     handle = os.getenv('BLUESKY_HANDLE', os.getenv('BSKY_USERNAME'))
@@ -313,13 +367,56 @@ def post_to_bluesky(image_path, date_text):
         upload = client.upload_blob(image_data)
         print("✅ Image uploaded")
         
-        # Create post text with hashtags
-        # Using proper spacing for better readability on Bluesky
-        post_text = f"{date_text}\n\n#Bangladesh #Bangla #বাংলাদেশ #বাংলা #বাংলাতারিখ #তারিখ #date #BanglaDate"
+        # Create post text with new format
+        # Format:
+        # আজ শনিবার, 
+        # ২৩ কার্তিক, ১৪৩০ বঙ্গাব্দ
+        # হেমন্তকাল
+        # 
+        # [hashtags]
         
-        # Create post with image
+        post_text = f"আজ {bangla_date_info['weekday']},\n{date_text}\n{bangla_date_info['season']}কাল\n\n#Bangladesh #Bangla #বাংলাদেশ #বাংলা #বাংলাতারিখ #তারিখ #date #BanglaDate"
+        
+        # Calculate byte positions for hashtags (rich text facets)
+        # We need to use UTF-8 byte offsets
+        post_text_bytes = post_text.encode('utf-8')
+        
+        # Find the start of hashtags section (after the double newline)
+        hashtag_section_start = post_text.find('\n\n#')
+        if hashtag_section_start != -1:
+            hashtag_section_start += 2  # Skip the \n\n
+        
+        # Create facets for each hashtag
+        facets = []
+        hashtags = ['#Bangladesh', '#Bangla', '#বাংলাদেশ', '#বাংলা', '#বাংলাতারিখ', '#তারিখ', '#date', '#BanglaDate']
+        
+        current_pos = hashtag_section_start
+        for hashtag in hashtags:
+            # Find the hashtag in the text starting from current position
+            hashtag_pos = post_text.find(hashtag, current_pos)
+            if hashtag_pos != -1:
+                # Calculate UTF-8 byte offsets
+                byte_start = len(post_text[:hashtag_pos].encode('utf-8'))
+                byte_end = len(post_text[:hashtag_pos + len(hashtag)].encode('utf-8'))
+                
+                # Create facet for this hashtag
+                facets.append({
+                    'index': {
+                        'byteStart': byte_start,
+                        'byteEnd': byte_end
+                    },
+                    'features': [{
+                        '$type': 'app.bsky.richtext.facet#tag',
+                        'tag': hashtag[1:]  # Remove the # symbol
+                    }]
+                })
+                
+                current_pos = hashtag_pos + len(hashtag)
+        
+        # Create post with image and facets
         post = client.send_post(
             text=post_text,
+            facets=facets if facets else None,
             embed={
                 '$type': 'app.bsky.embed.images',
                 'images': [{
@@ -334,6 +431,8 @@ def post_to_bluesky(image_path, date_text):
         
     except Exception as e:
         print(f"❌ Error posting to Bluesky: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 
@@ -352,13 +451,13 @@ def main():
     output_path = os.path.join(output_dir, f"bangla_date_{timestamp}.png")
     
     # Create image
-    image_path, date_text = create_bangla_date_image(output_path)
+    image_path, date_text, bangla_date_info = create_bangla_date_image(output_path)
 
     
     # Check if we should post to Bluesky
     if os.getenv('POST_TO_BLUESKY', 'false').lower() == 'true':
         print("\n🔄 Posting to Bluesky...")
-        post_to_bluesky(image_path, date_text)
+        post_to_bluesky(image_path, date_text, bangla_date_info)
     else:
         print("\n⚠️  POST_TO_BLUESKY not set to 'true', skipping Bluesky post")
         print(f"📝 To post to Bluesky, set POST_TO_BLUESKY=true in your .env file")
