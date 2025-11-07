@@ -1,0 +1,51 @@
+name: Daily Bangla Bagdhara
+
+on:
+  schedule:
+    # Run daily at 12:00 PM UTC+6 (6:00 AM UTC)
+    - cron: '0 6 * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  post-bagdhara:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pillow requests atproto
+      
+      - name: Download Shohid Shafkat Samir font
+        run: |
+          mkdir -p fonts
+          curl -L "https://lipighor.com/download/ShohidShafkatSamir.zip" -o fonts/ShohidShafkatSamir.zip
+          cd fonts
+          unzip ShohidShafkatSamir.zip
+          cp "Unicode/Li Shohid Shafkat Samir Unicode.ttf" ShohidShafkatSamir-Regular.ttf
+          rm ShohidShafkatSamir.zip
+          cd ..
+      
+      - name: Run Bagdhara script
+        env:
+          BSKY_USERNAME: ${{ secrets.BSKY_USERNAME }}
+          BSKY_APP_PASSWORD: ${{ secrets.BSKY_APP_PASSWORD }}
+          POST_TO_BLUESKY: 'true'
+        run: |
+          python scripts/bagdhara_bluesky.py
+      
+      - name: Upload generated image
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bagdhara-image
+          path: output/bagdhara_*.png
+          retention-days: 7

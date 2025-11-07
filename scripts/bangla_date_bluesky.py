@@ -59,13 +59,13 @@ def load_fonts():
         title_font = ImageFont.truetype(font_path, 72)
         date_font = ImageFont.truetype(font_path, 110)  # Increased from 80 to 110
         info_font = ImageFont.truetype(font_path, 68)  # Increased from 52 to 68
-        small_font = ImageFont.truetype(font_path, 36)
+        small_font = ImageFont.truetype(font_path, 60)  # Increased from 36 to 60
         return title_font, date_font, info_font, small_font
     except Exception as e:
         print(f"Warning: Could not load primary font: {e}")
         print("Falling back to system fonts...")
         return (get_fallback_font(72), get_fallback_font(110), 
-                get_fallback_font(68), get_fallback_font(36))
+                get_fallback_font(68), get_fallback_font(60))
 
 
 def get_bangla_date_info():
@@ -88,7 +88,7 @@ def get_profile_info():
     """
     Get profile information from Bluesky API
     """
-    handle = os.getenv('BLUESKY_HANDLE', os.getenv('BSKY_USERNAME', 'sayed.page'))
+    handle = os.getenv('BLUESKY_HANDLE', os.getenv('BSKY_USERNAME', 'sayed.app'))
     # Extract just the handle part (before @ if present)
     if '@' in handle:
         handle = handle.split('@')[0]
@@ -157,13 +157,13 @@ def create_bangla_date_image(output_path="bangla_date.png"):
     header_padding = 100
     
     # Calculate text positions first to center avatar
-    text_x = header_padding + 64 + 20  # avatar_size + spacing
+    avatar_size = 128  # Increased from 64 to 128
+    text_x = header_padding + avatar_size + 20  # avatar_size + spacing
     text_line1_y = header_y
-    text_line2_y = text_line1_y + 36
+    text_line2_y = text_line1_y + 70  # Increased spacing for larger font
     
     # Calculate avatar position to center it between the two text lines
-    total_text_height = 72  # Approximate height of both lines
-    avatar_size = 64
+    total_text_height = 130  # Approximate height of both lines with larger font
     avatar_x = header_padding
     avatar_y = header_y + (total_text_height - avatar_size) // 2
     
@@ -200,7 +200,7 @@ def create_bangla_date_image(output_path="bangla_date.png"):
     draw.text((text_x, text_line2_y), handle_text, font=small_font, fill=text_secondary)
     
     # Bluesky logo on the right (use local or download)
-    logo_size = 60  # Logo size
+    logo_size = 128  # Increased from 60 to 128
     logo_x = width - header_padding - logo_size
     logo_y = header_y + (total_text_height - logo_size) // 2
     
