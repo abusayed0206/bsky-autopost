@@ -334,9 +334,9 @@ def create_bangla_date_image(output_path="bangla_date.png"):
     img.save(output_path, 'PNG', quality=95)
     print(f"✅ Image saved successfully: {output_path}")
     
-    # Compose date_text for caption (multi-line)
-    caption_date_lines = f"{line1}\n{line2}\n{prefix1}{weekday}, {prefix2}{season}"
-    return output_path, caption_date_lines, bangla_date_info
+    # Compose date_text for caption (should be: ২৩ কার্তিক, ১৪৩২ বঙ্গাব্দ)
+    caption_date_text = f"{bangla_date_info['date']} {bangla_date_info['month']}, {bangla_date_info['year']} বঙ্গাব্দ"
+    return output_path, caption_date_text, bangla_date_info
 
 
 
@@ -388,7 +388,7 @@ def post_to_bluesky(image_path, date_text, bangla_date_info):
         
         # Create facets for each hashtag
         facets = []
-        hashtags = ['#Bangladesh', '#Bangla', '#বাংলাদেশ', '#বাংলা', '#বাংলাতারিখ', '#তারিখ', '#Date', '#BanglaDate']
+        hashtags = ['#Bangladesh', '#Bangla', '#বাংলাদেশ', '#বাংলা', '#বাংলাতারিখ', '#তারিখ', '#date', '#BanglaDate']
         
         current_pos = hashtag_section_start
         for hashtag in hashtags:
