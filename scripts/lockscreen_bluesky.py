@@ -247,26 +247,61 @@ def post_to_bluesky(client, images_data):
         # Create caption data
         caption_data = create_caption(images_data)
         
-        # Use TextBuilder to properly format the caption with hashtags
-        text_builder = client_utils.TextBuilder()
+        # Build the full text first to calculate byte offsets
+        full_text = caption_data['header'] + caption_data['titles']
         
-        # Add the main text
-        text_builder.text(caption_data['header'])
-        text_builder.text(caption_data['titles'])
-        
-        # Add hashtags with proper facets if present
         if caption_data.get('hashtags'):
-            text_builder.text('\n')
-            hashtags = caption_data['hashtags']
-            for tag in hashtags:
-                text_builder.tag(tag, tag)
-                text_builder.text(' ')
+            full_text += '\n'
+            # Join hashtags without TextBuilder
+            hashtag_text = ' '.join(caption_data['hashtags'])
+            full_text += hashtag_text
         
-        # Get the final text and facets
-        final_text = text_builder.build_text()
-        facets = text_builder.build_facets()
+        # Now create facets manually for hashtags and mentions
+        facets = []
         
-        print(f"📝 Caption length: {len(final_text)} characters")
+        # Add hashtag facets if present
+        if caption_data.get('hashtags'):
+            hashtag_start = len(caption_data['header']) + len(caption_data['titles']) + 1  # +1 for newline
+            for tag in caption_data['hashtags']:
+                # Find position in full text
+                tag_pos = full_text.find(tag, hashtag_start)
+                if tag_pos != -1:
+                    # Calculate UTF-8 byte offsets
+                    byte_start = len(full_text[:tag_pos].encode('utf-8'))
+                    byte_end = len(full_text[:tag_pos + len(tag)].encode('utf-8'))
+                    
+                    # Check if it's a mention or hashtag
+                    if tag.startswith('@'):
+                        # It's a mention - extract handle and add mention facet
+                        handle = tag.strip(',').strip()  # Remove trailing comma
+                        facets.append({
+                            'index': {
+                                'byteStart': byte_start,
+                                'byteEnd': byte_start + len(handle.encode('utf-8'))
+                            },
+                            'features': [{
+                                '$type': 'app.bsky.richtext.facet#mention',
+                                'did': 'did:plc:gn2mtw5tqnrp22r66gkikfla'  # sayed.page's DID
+                            }]
+                        })
+                    elif tag.startswith('#'):
+                        # It's a hashtag
+                        clean_tag = tag.rstrip(',').strip()  # Remove trailing comma and spaces
+                        facets.append({
+                            'index': {
+                                'byteStart': byte_start,
+                                'byteEnd': byte_start + len(clean_tag.encode('utf-8'))
+                            },
+                            'features': [{
+                                '$type': 'app.bsky.richtext.facet#tag',
+                                'tag': clean_tag[1:]  # Remove # symbol
+                            }]
+                        })
+                    
+                    hashtag_start = tag_pos + len(tag)
+        
+        print(f"📝 Caption length: {len(full_text)} characters")
+        print(f"📝 Facets: {len(facets)} (hashtags + mentions)")
         
         # Prepare image data and alt texts (with copyright details)
         image_contents = []
@@ -288,18 +323,18 @@ def post_to_bluesky(client, images_data):
         if len(image_contents) == 1:
             # Use send_image for single image
             response = client.send_image(
-                text=final_text,
+                text=full_text,
                 image=image_contents[0],
                 image_alt=image_alts[0],
-                facets=facets
+                facets=facets if facets else None
             )
         else:
             # Use send_images for multiple images (up to 4)
             response = client.send_images(
-                text=final_text,
+                text=full_text,
                 images=image_contents,
                 image_alts=image_alts,
-                facets=facets
+                facets=facets if facets else None
             )
         
         print(f"✅ Successfully posted to Bluesky!")

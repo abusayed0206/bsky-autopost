@@ -220,30 +220,52 @@ def create_caption(data):
 def post_to_bluesky(client, image_data, caption_data):
     """Post image to Bluesky using the atproto SDK with rich text facets"""
     try:
-        # Use TextBuilder to properly format the caption with hashtags
-        text_builder = client_utils.TextBuilder()
+        # Build the full text first
+        full_text = caption_data['header'] + caption_data['copyright']
         
-        # Add the main text
-        text_builder.text(caption_data['header'])
-        text_builder.text(caption_data['copyright'])
-        
-        # Add region if present
         if caption_data.get('region'):
-            text_builder.text(caption_data['region'])
+            full_text += caption_data['region']
         
-        # Add hashtags with proper facets if present
         if caption_data.get('hashtags'):
-            hashtags = caption_data['hashtags']
-            for tag in hashtags:
-                text_builder.tag(tag, tag)
-                text_builder.text(' ')
+            # Join hashtags with spaces
+            hashtag_text = ' '.join(caption_data['hashtags'])
+            full_text += hashtag_text
         
-        # Get the final text and facets
-        final_text = text_builder.build_text()
-        facets = text_builder.build_facets()
+        # Create facets manually for hashtags
+        facets = []
         
-        print(f"📝 Caption: {final_text}")
-        print(f"📝 Caption length: {len(final_text)} characters")
+        if caption_data.get('hashtags'):
+            # Calculate starting position for hashtags
+            hashtag_section_start = len(caption_data['header']) + len(caption_data['copyright'])
+            if caption_data.get('region'):
+                hashtag_section_start += len(caption_data['region'])
+            
+            hashtag_start = hashtag_section_start
+            for tag in caption_data['hashtags']:
+                # Find position in full text
+                tag_pos = full_text.find(tag, hashtag_start)
+                if tag_pos != -1:
+                    # Calculate UTF-8 byte offsets
+                    byte_start = len(full_text[:tag_pos].encode('utf-8'))
+                    byte_end = len(full_text[:tag_pos + len(tag)].encode('utf-8'))
+                    
+                    # Add hashtag facet
+                    facets.append({
+                        'index': {
+                            'byteStart': byte_start,
+                            'byteEnd': byte_end
+                        },
+                        'features': [{
+                            '$type': 'app.bsky.richtext.facet#tag',
+                            'tag': tag[1:]  # Remove # symbol
+                        }]
+                    })
+                    
+                    hashtag_start = tag_pos + len(tag)
+        
+        print(f"📝 Caption: {full_text}")
+        print(f"📝 Caption length: {len(full_text)} characters")
+        print(f"📝 Facets: {len(facets)} hashtags")
         
         # Prepare alt text (copyright text)
         alt_text = caption_data['copyright'].replace('📷 ', '').strip()
@@ -253,10 +275,10 @@ def post_to_bluesky(client, image_data, caption_data):
         # Post to Bluesky with rich text
         print("📤 Posting to Bluesky...")
         response = client.send_image(
-            text=final_text,
+            text=full_text,
             image=image_data,
             image_alt=alt_text,
-            facets=facets
+            facets=facets if facets else None
         )
         
         print("✅ Image successfully posted to Bluesky!")
