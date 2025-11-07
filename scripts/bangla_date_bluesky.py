@@ -369,13 +369,13 @@ def post_to_bluesky(image_path, date_text, bangla_date_info):
         
         # Create post text with new format
         # Format:
-        # আজ শনিবার, 
-        # ২৩ কার্তিক, ১৪৩০ বঙ্গাব্দ
-        # হেমন্তকাল
+        # আজ রোজ শুক্রবার,
+        # ২৩ কার্তিক, ১৪৩২ বঙ্গাব্দ
+        # এবং হেমন্তকাল
         # 
         # [hashtags]
         
-        post_text = f"আজ {bangla_date_info['weekday']},\n{date_text}\n{bangla_date_info['season']}কাল\n\n#Bangladesh #Bangla #বাংলাদেশ #বাংলা #বাংলাতারিখ #তারিখ #date #BanglaDate"
+        post_text = f"আজ রোজ {bangla_date_info['weekday']},\n{date_text}\nএবং {bangla_date_info['season']}কাল\n\n#Bangladesh #Bangla #বাংলাদেশ #বাংলা #বাংলাতারিখ #তারিখ #date #BanglaDate"
         
         # Calculate byte positions for hashtags (rich text facets)
         # We need to use UTF-8 byte offsets
@@ -388,7 +388,7 @@ def post_to_bluesky(image_path, date_text, bangla_date_info):
         
         # Create facets for each hashtag
         facets = []
-        hashtags = ['#Bangladesh', '#Bangla', '#বাংলাদেশ', '#বাংলা', '#বাংলাতারিখ', '#তারিখ', '#date', '#BanglaDate']
+        hashtags = ['#Bangladesh', '#Bangla', '#বাংলাদেশ', '#বাংলা', '#বাংলাতারিখ', '#তারিখ', '#Date', '#BanglaDate']
         
         current_pos = hashtag_section_start
         for hashtag in hashtags:
