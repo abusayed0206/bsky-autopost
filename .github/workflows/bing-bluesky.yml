@@ -1,0 +1,33 @@
+name: Bing Wallpaper to Bluesky
+
+on:
+  schedule:
+    # Runs at 5:47 AM GMT+6 (which is 11:47 PM UTC previous day)
+    - cron: '47 23 * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  post-wallpaper:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Fetch and post Bing wallpaper to Bluesky
+      env:
+        BSKY_USERNAME: ${{ secrets.BSKY_USERNAME }}
+        BSKY_APP_PASSWORD: ${{ secrets.BSKY_APP_PASSWORD }}
+      run: |
+        python scripts/bing_bluesky.py
