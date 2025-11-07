@@ -181,3 +181,4 @@ cython_debug/
 .cursorindexingignore
 test_setup.py
 GITHUB_ACTIONS_SETUP.md
+BLUESKY_POST_FORMAT.md

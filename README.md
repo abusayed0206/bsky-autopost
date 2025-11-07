@@ -1,8 +1,27 @@
 # Bluesky Auto-Post Scripts
 
-Automated scripts to fetch and post beautiful wallpapers to Bluesky from various Microsoft sources.
+Automated scripts to fetch and post beautiful wallpapers and Bangla date images to Bluesky from various Microsoft sources and cultural data.
 
 ## 📜 Scripts
+
+### 🗓️ Bangla Date (`bangla_date_bluesky.py`)
+
+Generates and posts a beautiful dark-themed image with today's Bangla date information.
+
+**Features:**
+- Fetches real-time Bangla calendar data using the `bangla` library
+- Displays date in Bangla numerals (e.g., ২৩ কার্তিক, ১৪৩২ বঙ্গাব্দ)
+- Shows weekday and season information (বারঃ শুক্রবার, ঋতুঃ হেমন্ত)
+- Dark theme design with Bluesky embed style
+- Fetches user profile (avatar, display name, handle) from Bluesky API
+- Uses custom Codepotro Ekush Bangla font (downloaded from codepotro.com)
+- Official Bluesky butterfly logo in header
+- Automatic daily posting at 5:00 AM UTC+6 (Bangladesh Time)
+- Rich text hashtags: `#Bangladesh #Bangla #বাংলাদেশ #বাংলা #বাংলাতারিখ #তারিখ #date #BanglaDate`
+- GitHub Actions workflow for automated daily posts
+- All assets (font, logo) downloaded dynamically - no repo storage needed
+
+---
 
 ### 🖼️ Bing Wallpaper (`bing_bluesky.py`)
 

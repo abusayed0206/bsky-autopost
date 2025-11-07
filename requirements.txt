@@ -2,3 +2,4 @@ requests
 atproto
 python-dotenv
 Pillow
+bangla

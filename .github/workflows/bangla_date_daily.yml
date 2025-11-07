@@ -1,0 +1,59 @@
+name: Post Bangla Date to Bluesky
+
+on:
+  schedule:
+    # Runs at 5:00 AM UTC+6 (which is 11:00 PM UTC the day before)
+    # Cron runs in UTC, so 5 AM UTC+6 = 11 PM UTC (previous day)
+    - cron: '0 23 * * *'
+  
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  post-bangla-date:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Download and extract font
+        run: |
+          # Download font
+          echo "Downloading Codepotro Ekush font..."
+          curl -L -o fonts.zip "https://codepotro.com/files/fonts/Codepotro%20Ekush.zip"
+          mkdir -p fonts
+          unzip -o fonts.zip -d fonts/
+          echo "✅ Font downloaded and extracted"
+          
+          # Download Bluesky logo
+          echo "Downloading Bluesky logo..."
+          curl -L -o fonts/bluesky_logo.png "https://bsky.app/static/apple-touch-icon.png"
+          echo "✅ Logo downloaded"
+      
+      - name: Generate and post Bangla date image
+        env:
+          BSKY_USERNAME: ${{ secrets.BSKY_USERNAME }}
+          BSKY_APP_PASSWORD: ${{ secrets.BSKY_APP_PASSWORD }}
+          POST_TO_BLUESKY: 'true'
+        run: |
+          python scripts/bangla_date_bluesky.py
+      
+      - name: Upload generated image as artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bangla-date-image
+          path: output/*.png
+          retention-days: 7
