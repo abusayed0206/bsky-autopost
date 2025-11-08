@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+/dateset_movies/
 
 # C extensions
 *.so

@@ -276,34 +276,58 @@ def get_todays_movies(dataset_dir):
     return movies
 
 
-def select_random_movie(movies):
-    """Select a random movie from the list (with backdrop)"""
-    # Filter movies with backdrops and with a non-empty tagline (user requested)
+def select_movies_by_time(movies):
+    """Select 4 movies based on time of day (AM/PM) and popularity"""
+    # Filter movies with posters AND tagline (user requested)
     movies_filtered = [m for m in movies
-                       if m.get('backdrop_path') and m['backdrop_path'].strip()
+                       if m.get('poster_path') and m['poster_path'].strip()
                        and m.get('tagline') and m['tagline'].strip()]
 
     if not movies_filtered:
-        print("❌ No movies with both backdrop and tagline found")
+        print("❌ No movies with both poster and tagline found")
         sys.exit(1)
+    
+    print(f"📊 Found {len(movies_filtered)} movies with poster and tagline")
 
-    movie = random.choice(movies_filtered)
-    title = movie.get('title', 'Unknown')
-    year = ''
-    # Try to extract year from release_date if present
-    rd = movie.get('release_date') or movie.get('release_date_local') or ''
-    if rd:
-        try:
-            year = rd.split('-')[0]
-        except:
-            year = ''
-
-    if year:
-        print(f"🎲 Selected: {title} ({year}) (from {len(movies_filtered)} candidates)")
+    # Sort by popularity (descending) and take top 8
+    try:
+        movies_sorted = sorted(movies_filtered, key=lambda m: float(m.get('popularity', 0)), reverse=True)[:8]
+    except:
+        # Fallback if popularity parsing fails
+        movies_sorted = movies_filtered[:8]
+    
+    print(f"🏆 Selected top 8 movies by popularity")
+    
+    # Check time of day (AM = 0-11, PM = 12-23)
+    current_hour = datetime.now().hour
+    is_am = current_hour < 12
+    
+    # Select movies based on time
+    if is_am:
+        selected = movies_sorted[0:4]
+        time_label = "AM"
     else:
-        print(f"🎲 Selected: {title} (from {len(movies_filtered)} candidates)")
-
-    return movie
+        selected = movies_sorted[4:8]
+        time_label = "PM"
+    
+    print(f"⏰ Current time: {datetime.now().strftime('%I:%M %p')} ({time_label})")
+    print(f"🎬 Selected 4 movies for {time_label}:")
+    for i, movie in enumerate(selected, 1):
+        title = movie.get('title', 'Unknown')
+        year = ''
+        rd = movie.get('release_date', '').strip()
+        if rd:
+            try:
+                year = rd.split('-')[0]
+            except:
+                year = ''
+        
+        if year:
+            print(f"   {i}. {title} ({year})")
+        else:
+            print(f"   {i}. {title}")
+    
+    return selected
 
 
 def compress_image_to_limit(image_path, max_size_kb=976):
@@ -371,25 +395,25 @@ def compress_image_to_limit(image_path, max_size_kb=976):
             return image_path
 
 
-def download_backdrop(backdrop_path, output_path="movie_backdrop.jpg"):
-    """Download backdrop image from TMDB"""
-    if not backdrop_path or backdrop_path.strip() == '':
-        print("⚠️  No backdrop path available")
+def download_poster(poster_path, output_path="movie_poster.jpg"):
+    """Download poster image from TMDB"""
+    if not poster_path or poster_path.strip() == '':
+        print("⚠️  No poster path available")
         return None
     
     # TMDB image base URL (original size)
     base_url = "https://image.tmdb.org/t/p/original"
-    image_url = base_url + backdrop_path
+    image_url = base_url + poster_path
     
     try:
-        print(f"⬇️  Downloading backdrop from: {image_url}")
+        print(f"⬇️  Downloading poster from: {image_url}")
         response = requests.get(image_url, timeout=30)
         response.raise_for_status()
         
         with open(output_path, 'wb') as f:
             f.write(response.content)
         
-        print(f"✅ Backdrop downloaded: {output_path} ({len(response.content)} bytes)")
+        print(f"✅ Poster downloaded: {output_path} ({len(response.content)} bytes)")
         
         # Compress if needed
         compressed_path = compress_image_to_limit(output_path, max_size_kb=976)
@@ -397,133 +421,119 @@ def download_backdrop(backdrop_path, output_path="movie_backdrop.jpg"):
         return compressed_path
         
     except Exception as e:
-        print(f"❌ Error downloading backdrop: {e}")
+        print(f"❌ Error downloading poster: {e}")
         return None
 
 
-def create_post_text(movie, max_length=300):
-    """Create post text with movie details"""
-    title = movie.get('title', 'Unknown')
-    tagline = movie.get('tagline', '').strip()
-    genres = movie.get('genres', '').strip()
-    countries = movie.get('production_countries', '').strip()
-    languages = movie.get('spoken_languages', '').strip()
-    movie_id = movie.get('id', '').strip()
-
-    # Title with year if available
-    year = ''
-    rd = movie.get('release_date', '').strip()
-    if rd:
-        try:
-            year = rd.split('-')[0]
-        except:
-            year = ''
-
-    title_line = f"🎬 Movie of the Day: {title}"
-    if year:
-        title_line = f"{title_line}({year})"
-
-    # Country and language names (take first entries)
-    country_list = [c.strip() for c in countries.split(',')] if countries else []
-    language_list = [l.strip() for l in languages.split(',')] if languages else []
-
-    country_display = country_list[0] if country_list else ''
-    language_display = language_list[0] if language_list else ''
-
-    # Get flags for inline display
-    country_flag = country_to_flag(country_display) if country_display else ''
-    language_flag = language_to_flag(language_display) if language_display else ''
-
-    # Build lines per requested style
-    lines = [title_line]
-    lines.append(f"Tagline: {tagline}")
+def download_multiple_posters(movies, output_dir):
+    """Download and compress posters for multiple movies"""
+    poster_paths = []
     
-    # Country and Language with inline flags
-    country_text = f"{country_display}{country_flag}" if country_display else 'N/A'
-    language_text = f"{language_display}{language_flag}" if language_display else 'N/A'
-    lines.append(f"Country: {country_text}, Language: {language_text}")
+    for i, movie in enumerate(movies, 1):
+        title = movie.get('title', 'Unknown').replace('/', '_').replace('\\', '_')
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_path = os.path.join(output_dir, f"poster_{i}_{timestamp}_{title[:30]}.jpg")
+        
+        poster_path = download_poster(movie.get('poster_path'), output_path)
+        
+        if poster_path:
+            poster_paths.append(poster_path)
+        else:
+            print(f"⚠️  Failed to download poster for {title}")
+    
+    return poster_paths
 
-    # Attribution line with TMDB URL
-    if movie_id:
-        lines.append(f'\n© TMDB(https://www.themoviedb.org/movie/{movie_id})')
-    else:
-        lines.append('\n© TMDB')
 
+def create_post_text(movies, max_length=300):
+    """Create post text with multiple movie details"""
+    if not movies:
+        return "", []
+    
+    # Build main caption
+    lines = ["Movies of the day (4/8)"]
+    
+    # Add each movie with title and year
+    for movie in movies:
+        title = movie.get('title', 'Unknown')
+        year = ''
+        rd = movie.get('release_date', '').strip()
+        if rd:
+            try:
+                year = rd.split('-')[0]
+            except:
+                year = ''
+        
+        if year:
+            lines.append(f"🎬 {title}({year})")
+        else:
+            lines.append(f"🎬 {title}")
+    
+    # Attribution (no URL as requested)
+    lines.append("\n© TMDB")
+    
     base_text = '\n'.join(lines)
-
-    # Build hashtags: genres (max 2), country, language, #onthisday and some extras
+    
+    # Build hashtags: movie titles (no spaces) + unique genres + #Movie + generic tags
     hashtag_parts = []
-    if genres:
-        genre_list = [g.strip() for g in genres.split(',') if g.strip()]
-        for g in genre_list[:2]:
-            tag = '#' + g.replace(' ', '').replace('-', '')
+    
+    # Add movie title hashtags (remove spaces)
+    for movie in movies:
+        title = movie.get('title', '').strip()
+        if title:
+            # Remove spaces, special chars, keep alphanumeric
+            tag = '#' + ''.join(c for c in title if c.isalnum())
             hashtag_parts.append(tag)
-
-    if country_display:
-        hashtag_parts.append('#' + country_display.replace(' ', '').replace('-', ''))
-
-    if language_display:
-        hashtag_parts.append('#' + language_display.replace(' ', '').replace('-', ''))
-
-    # Add required and helpful tags
-    hashtag_parts.extend(['#OnThisDay', '#MovieOfTheDay', '#TMDB'])
-
-    # Ensure unique and reasonable order
+    
+    # Collect unique genres from all 4 movies
+    all_genres = set()
+    for movie in movies:
+        genres = movie.get('genres', '').strip()
+        if genres:
+            genre_list = [g.strip() for g in genres.split(',') if g.strip()]
+            for g in genre_list:
+                all_genres.add(g)
+    
+    # Add genre hashtags
+    for genre in sorted(all_genres):
+        tag = '#' + genre.replace(' ', '').replace('-', '')
+        hashtag_parts.append(tag)
+    
+    # Add generic tags
+    hashtag_parts.extend(['#Movie', '#MovieOfTheDay', '#OnThisDay', '#TMDB'])
+    
+    # Ensure unique hashtags (case-insensitive)
     seen = set()
     hashtags_ordered = []
     for h in hashtag_parts:
         if h.lower() not in seen:
             hashtags_ordered.append(h)
             seen.add(h.lower())
-
+    
     hashtag_line = ' '.join(hashtags_ordered)
-
     full_text = base_text + '\n\n' + hashtag_line
-
-    # Ensure byte length <= max_length (default 300). Trim hashtags then tagline if needed.
+    
+    # Ensure byte length <= max_length (default 300)
     def byte_len(s):
         return len(s.encode('utf-8'))
-
+    
     if byte_len(full_text) > max_length:
-        # First trim hashtags progressively
+        # Trim hashtags progressively
         for keep in range(len(hashtags_ordered), 0, -1):
             trial = base_text + '\n\n' + ' '.join(hashtags_ordered[:keep])
             if byte_len(trial) <= max_length:
                 full_text = trial
                 hashtags_ordered = hashtags_ordered[:keep]
                 break
-
+    
+    # Final fallback: just base text if still too long
     if byte_len(full_text) > max_length:
-        # Remove tagline line (user ok with that fallback previously)
-        country_text = f"{country_display}{country_flag}" if country_display else 'N/A'
-        language_text = f"{language_display}{language_flag}" if language_display else 'N/A'
-        lines_no_tag = [title_line, f"Country: {country_text}, Language: {language_text}"]
-        if movie_id:
-            lines_no_tag.append(f'\n© TMDB(https://www.themoviedb.org/movie/{movie_id})')
-        else:
-            lines_no_tag.append('\n© TMDB')
-        base_no_tag = '\n'.join(lines_no_tag)
-        for keep in range(len(hashtags_ordered), 0, -1):
-            trial = base_no_tag + '\n\n' + ' '.join(hashtags_ordered[:keep])
-            if byte_len(trial) <= max_length:
-                full_text = trial
-                hashtags_ordered = hashtags_ordered[:keep]
-                break
-
-    # Final fallback: truncate hashtags string to fit (rare)
-    if byte_len(full_text) > max_length:
-        allowed = max_length - byte_len(base_text) - 2
-        if allowed > 0:
-            truncated = (' '.join(hashtags_ordered)).encode('utf-8')[:allowed].decode('utf-8', errors='ignore')
-            full_text = base_text + '\n\n' + truncated
-        else:
-            full_text = base_text[:max_length]
-
+        full_text = base_text[:max_length]
+    
     return full_text, hashtags_ordered
 
 
-def post_to_bluesky(image_path, movie):
-    """Post the movie backdrop to Bluesky with rich text facets"""
+def post_to_bluesky(poster_paths, movies):
+    """Post multiple movie posters to Bluesky with rich text facets"""
     # Get credentials
     handle = os.getenv('BLUESKY_HANDLE', os.getenv('BSKY_USERNAME'))
     password = os.getenv('BLUESKY_PASSWORD', os.getenv('BSKY_APP_PASSWORD'))
@@ -539,24 +549,40 @@ def post_to_bluesky(image_path, movie):
         client.login(handle, password)
         print(f"✅ Logged in as @{handle}")
         
-        # Read image
-        with open(image_path, 'rb') as f:
-            image_data = f.read()
+        # Upload all images
+        print(f"📤 Uploading {len(poster_paths)} posters...")
+        images = []
         
-        # Upload image
-        print("📤 Uploading backdrop...")
-        upload = client.upload_blob(image_data)
-        print("✅ Backdrop uploaded")
+        for i, (poster_path, movie) in enumerate(zip(poster_paths, movies), 1):
+            # Read image
+            with open(poster_path, 'rb') as f:
+                image_data = f.read()
+            
+            # Upload image
+            print(f"   Uploading poster {i}/{len(poster_paths)}...")
+            upload = client.upload_blob(image_data)
+            
+            # Create alt text with movie title
+            title = movie.get('title', 'Unknown')
+            alt_text = f"Movie poster for {title}"
+            
+            images.append({
+                'alt': alt_text[:1000],  # Alt text limit
+                'image': upload.blob
+            })
+        
+        print("✅ All posters uploaded")
         
         # Create post text
-        post_text, hashtag_list = create_post_text(movie)
+        post_text, hashtag_list = create_post_text(movies)
         
         print("\n" + "="*60)
         print("📝 POST PREVIEW:")
         print("="*60)
         print(post_text)
         print("="*60)
-        print(f"Character count: {len(post_text.encode('utf-8'))} bytes\n")
+        print(f"Character count: {len(post_text.encode('utf-8'))} bytes")
+        print(f"Images: {len(images)}\n")
         
         # Create facets for hashtags
         facets = []
@@ -578,21 +604,15 @@ def post_to_bluesky(image_path, movie):
                     }]
                 })
         
-        # Post to Bluesky
+        # Post to Bluesky with multiple images
         print("📝 Posting to Bluesky...")
-        alt_text = f"Movie backdrop for {movie['title']}"
-        if movie.get('tagline'):
-            alt_text += f" - {movie['tagline']}"
         
         post = client.send_post(
             text=post_text,
             facets=facets if facets else None,
             embed={
                 '$type': 'app.bsky.embed.images',
-                'images': [{
-                    'alt': alt_text[:1000],  # Alt text limit
-                    'image': upload.blob
-                }]
+                'images': images
             }
         )
         
@@ -608,7 +628,7 @@ def post_to_bluesky(image_path, movie):
 
 def main():
     """Main function"""
-    print("\n🎬 Movie of the Day - Bluesky Poster")
+    print("\n🎬 Movies of the Day - Bluesky Poster")
     print("="*60)
     
     # Download and extract dataset
@@ -617,40 +637,49 @@ def main():
     # Get today's movies
     movies = get_todays_movies(dataset_dir)
     
-    # Select random movie
-    movie = select_random_movie(movies)
+    # Select 4 movies based on time (AM/PM) and popularity
+    selected_movies = select_movies_by_time(movies)
+    
+    if len(selected_movies) < 4:
+        print(f"⚠️  Only {len(selected_movies)} movies available, need 4")
+        if len(selected_movies) == 0:
+            print("❌ No movies to post")
+            sys.exit(1)
     
     # Create output directory
     output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "output")
     os.makedirs(output_dir, exist_ok=True)
     
-    # Generate filename
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_path = os.path.join(output_dir, f"movie_{timestamp}.jpg")
+    # Download all posters
+    print(f"\n🖼️  Downloading {len(selected_movies)} posters...")
+    poster_paths = download_multiple_posters(selected_movies, output_dir)
     
-    # Download backdrop
-    print("\n🖼️  Downloading backdrop...")
-    backdrop_path = download_backdrop(movie['backdrop_path'], output_path)
-    
-    if not backdrop_path:
-        print("❌ Could not download backdrop, exiting")
+    if len(poster_paths) == 0:
+        print("❌ Could not download any posters, exiting")
         sys.exit(1)
+    
+    if len(poster_paths) < len(selected_movies):
+        print(f"⚠️  Only downloaded {len(poster_paths)}/{len(selected_movies)} posters")
+    
+    # Adjust selected_movies to match downloaded posters
+    selected_movies = selected_movies[:len(poster_paths)]
     
     # Post to Bluesky
     if os.getenv('POST_TO_BLUESKY', 'false').lower() == 'true':
         print("\n📤 Posting to Bluesky...")
-        post_to_bluesky(backdrop_path, movie)
+        post_to_bluesky(poster_paths, selected_movies)
     else:
         print("\n⚠️  POST_TO_BLUESKY not set to 'true', skipping post")
         print("📝 Set POST_TO_BLUESKY=true in .env to enable posting")
         # Still show preview
-        post_text, _ = create_post_text(movie)
+        post_text, _ = create_post_text(selected_movies)
         print("\n" + "="*60)
         print("📝 POST PREVIEW:")
         print("="*60)
         print(post_text)
         print("="*60)
-        print(f"Character count: {len(post_text.encode('utf-8'))} bytes\n")
+        print(f"Character count: {len(post_text.encode('utf-8'))} bytes")
+        print(f"Images: {len(poster_paths)}\n")
     
     print("\n✨ Done!")
     print("="*60 + "\n")
