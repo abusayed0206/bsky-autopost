@@ -16,6 +16,7 @@ import pycountry
 import subprocess
 import tempfile
 from requests.auth import HTTPBasicAuth
+from PIL import Image
 
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -305,6 +306,71 @@ def select_random_movie(movies):
     return movie
 
 
+def compress_image_to_limit(image_path, max_size_kb=976):
+    """Compress image progressively until it's under the size limit"""
+    max_size_bytes = max_size_kb * 1024
+    
+    # Check current size
+    current_size = os.path.getsize(image_path)
+    
+    if current_size <= max_size_bytes:
+        print(f"✅ Image size OK: {current_size / 1024:.2f}KB (limit: {max_size_kb}KB)")
+        return image_path
+    
+    print(f"⚠️  Image too large: {current_size / 1024:.2f}KB (limit: {max_size_kb}KB)")
+    print("🔄 Compressing image...")
+    
+    # Open image
+    img = Image.open(image_path)
+    
+    # Convert RGBA to RGB if needed
+    if img.mode in ('RGBA', 'LA', 'P'):
+        background = Image.new('RGB', img.size, (255, 255, 255))
+        if img.mode == 'P':
+            img = img.convert('RGBA')
+        background.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
+        img = background
+    
+    # Try different quality levels (start at 95%, reduce by 5% each time)
+    quality = 95
+    while quality >= 20:
+        # Save with reduced quality
+        img.save(image_path, 'JPEG', quality=quality, optimize=True)
+        new_size = os.path.getsize(image_path)
+        
+        print(f"   Quality {quality}%: {new_size / 1024:.2f}KB")
+        
+        if new_size <= max_size_bytes:
+            print(f"✅ Compressed successfully to {new_size / 1024:.2f}KB at {quality}% quality")
+            return image_path
+        
+        quality -= 5
+    
+    # If still too large, resize the image
+    print("⚠️  Still too large after quality reduction, resizing...")
+    img = Image.open(image_path)
+    
+    # Reduce dimensions by 10% each iteration
+    scale_factor = 0.9
+    while True:
+        new_width = int(img.width * scale_factor)
+        new_height = int(img.height * scale_factor)
+        
+        if new_width < 100 or new_height < 100:
+            print("❌ Could not compress image enough")
+            return None
+        
+        resized = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        resized.save(image_path, 'JPEG', quality=85, optimize=True)
+        new_size = os.path.getsize(image_path)
+        
+        print(f"   Resized to {new_width}x{new_height}: {new_size / 1024:.2f}KB")
+        
+        if new_size <= max_size_bytes:
+            print(f"✅ Compressed successfully to {new_size / 1024:.2f}KB")
+            return image_path
+
+
 def download_backdrop(backdrop_path, output_path="movie_backdrop.jpg"):
     """Download backdrop image from TMDB"""
     if not backdrop_path or backdrop_path.strip() == '':
@@ -323,8 +389,12 @@ def download_backdrop(backdrop_path, output_path="movie_backdrop.jpg"):
         with open(output_path, 'wb') as f:
             f.write(response.content)
         
-        print(f"✅ Backdrop saved: {output_path} ({len(response.content)} bytes)")
-        return output_path
+        print(f"✅ Backdrop downloaded: {output_path} ({len(response.content)} bytes)")
+        
+        # Compress if needed
+        compressed_path = compress_image_to_limit(output_path, max_size_kb=976)
+        
+        return compressed_path
         
     except Exception as e:
         print(f"❌ Error downloading backdrop: {e}")
