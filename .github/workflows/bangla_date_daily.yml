@@ -2,9 +2,8 @@ name: Post Bangla Date to Bluesky
 
 on:
   schedule:
-    # Runs at 5:00 AM Bangladesh Time (UTC+6)
-    # Cron runs in UTC, so 5:00 AM UTC+6 = 23:00 (11:00 PM) UTC previous day
-    # The script uses Bangladesh timezone to ensure correct date/weekday
+    # Runs at 5:00 AM UTC+6 (which is 11:00 PM UTC the day before)
+    # Cron runs in UTC, so 5 AM UTC+6 = 11 PM UTC (previous day)
     - cron: '0 23 * * *'
   
   # Allow manual trigger

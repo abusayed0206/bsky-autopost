@@ -5,7 +5,7 @@ Generates a dark-themed image with Bangla date information and posts to Bluesky
 
 import os
 import sys
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 import bangla
 from dotenv import load_dotenv
@@ -70,18 +70,12 @@ def load_fonts():
 
 def get_bangla_date_info():
     """
-    Get today's Bangla date information in Bangladesh timezone (UTC+6)
+    Get today's Bangla date information
     """
-    # In GitHub Actions, datetime.now() returns UTC time
-    # We need to convert it to Bangladesh time (UTC+6)
-    utc_now = datetime.now(timezone.utc)
-    bd_timezone = timezone(timedelta(hours=6))
-    today = utc_now.astimezone(bd_timezone)
+    # Get today's date
+    today = datetime.now()
     
-    print(f"ℹ️  UTC time: {utc_now.strftime('%Y-%m-%d %H:%M:%S UTC')}")
-    print(f"ℹ️  Bangladesh time: {today.strftime('%Y-%m-%d %H:%M:%S %Z')}")
-    
-    # Get Bangla date with ordinal using Bangladesh date
+    # Get Bangla date with ordinal
     bangla_date = bangla.get_date(today.day, today.month, today.year, ordinal=True)
     
     # Get English date for reference

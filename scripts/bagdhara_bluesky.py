@@ -467,7 +467,7 @@ def post_to_bluesky(image_path, bagdhara):
         
         # Create facets for hashtags
         facets = []
-        hashtags = ['#বাংলা', '#বাগধারা', '#BanglaBagdhara', '#BanglaIdiom', '#বাংলাভাষা', '#Bengali', '#Bangladesh', '#বাংলাদেশ']
+        hashtags = ['#বাংলা', '#বাগধারা', '#BanglaBagdhara', '#BanglaIdiom', '#বাংলাভাষা', '#Bengali']
         
         # Find hashtag section
         hashtag_section = post_text.split('\n\n')[-1]
