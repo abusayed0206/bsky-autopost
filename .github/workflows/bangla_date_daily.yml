@@ -21,13 +21,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: 'scripts/bangla-dates/package.json'
       
       - name: Install dependencies
         run: |
           cd scripts/bangla-dates
-          npm ci
+          npm install --production
       
       - name: Download fonts and logo
         run: |
