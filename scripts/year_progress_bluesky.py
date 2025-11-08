@@ -38,10 +38,10 @@ def generate_progress_bar(value, max_value, bar_length=20):
     # Scale to bar_length instead of 100
     repeat_amount = (percentage / 100) * bar_length
     looptimes = 1
-    barstring = '▓'
-    # adds filled sections to progress bar
+    barstring = '█'
+    # adds filled sections to progress bar (using solid blocks for better visibility)
     while looptimes < repeat_amount:
-        barstring = barstring + '▓'
+        barstring = barstring + '█'
         looptimes += 1
     # gets the decimal value
     decimal_part = repeat_amount % 1
@@ -144,8 +144,8 @@ def reply_to_own_post(client, parent_post_response, test_mode=False):
         
         year = datetime.now(timezone.utc).year
         
-        # Create reply text - show remaining percentage
-        reply_text = f"{remaining:.0f}% of {year} is remaining."
+        # Create reply text - show exact remaining percentage with 2 decimals
+        reply_text = f"{remaining:.2f}% of {year} is remaining."
         
         print(f"💬 Reply text: {reply_text}")
         
