@@ -27,7 +27,7 @@ except ImportError:
 # Year Progress Bar Functions (merged from year_progres.py)
 # ============================================================================
 
-def generate_progress_bar(value, max_value):
+def generate_progress_bar(value, max_value, bar_length=20):
     """Generate a Unicode progress bar for given value and max"""
     cutup = value / max_value
     # doesn't run if the percentage is over 100%
@@ -35,12 +35,13 @@ def generate_progress_bar(value, max_value):
         return None, None
     
     percentage = cutup * 100
-    repeat_amount = percentage
+    # Scale to bar_length instead of 100
+    repeat_amount = (percentage / 100) * bar_length
     looptimes = 1
-    barstring = '█'
-    # adds black sections to progress bar
+    barstring = '▓'
+    # adds filled sections to progress bar
     while looptimes < repeat_amount:
-        barstring = barstring + '█'
+        barstring = barstring + '▓'
         looptimes += 1
     # gets the decimal value
     decimal_part = repeat_amount % 1
@@ -50,11 +51,11 @@ def generate_progress_bar(value, max_value):
             barstring = barstring + '▒'
         else:
             barstring = barstring + '▓'
-    # counts the nunmber of characters in the bar
+    # counts the number of characters in the bar
     character_count = 0
     for char in barstring:
         character_count += 1
-    empty_repeat_amount = 100 - character_count
+    empty_repeat_amount = bar_length - character_count
     # adds the blank space to the bar
     looptimes = 0
     while looptimes < empty_repeat_amount:
@@ -103,8 +104,8 @@ def post_year_progress(client, test_mode=False):
         
         year = datetime.now(timezone.utc).year
         
-        # Create post text with progress bar and percentage
-        post_text = f"📅 Year {year} Progress\n\n{bar}\n\n{percentage:.1f}% complete"
+        # Create post text with single-line progress bar and percentage
+        post_text = f"📅 Year {year} Progress\n{bar} {percentage:.2f}%"
         
         print(f"📝 Post text ({len(post_text)} chars):")
         print(post_text)
@@ -143,8 +144,8 @@ def reply_to_own_post(client, parent_post_response, test_mode=False):
         
         year = datetime.now(timezone.utc).year
         
-        # Create reply text
-        reply_text = f"{remaining:.1f}% remaining of {year}"
+        # Create reply text - show remaining percentage
+        reply_text = f"{remaining:.0f}% of {year} is remaining."
         
         print(f"💬 Reply text: {reply_text}")
         
@@ -152,25 +153,11 @@ def reply_to_own_post(client, parent_post_response, test_mode=False):
             print("🧪 TEST MODE: Not replying to own post")
             return
         
-        # Parse the parent post URI to get repo and rkey
-        # Format: at://did:plc:xxxxx/app.bsky.feed.post/xxxxx
-        parent_uri = parent_post_response.uri
-        parent_cid = parent_post_response.cid
-        
-        # Create reply reference (both parent and root point to the same post)
+        # Create reply reference using create_strong_ref
+        # Both parent and root point to the same post (our year progress post)
         parent_ref = models.AppBskyFeedPost.ReplyRef(
-            parent=models.create_strong_ref(
-                models.AppBskyFeedPost.GetRecordResponse(
-                    uri=parent_uri,
-                    cid=parent_cid
-                )
-            ),
-            root=models.create_strong_ref(
-                models.AppBskyFeedPost.GetRecordResponse(
-                    uri=parent_uri,
-                    cid=parent_cid
-                )
-            )
+            parent=models.create_strong_ref(parent_post_response),
+            root=models.create_strong_ref(parent_post_response)
         )
         
         # Send reply
@@ -212,6 +199,11 @@ def main():
         print("📊 Calculating year progress...")
         post_year_progress(None, test_mode=True)
         print()
+        
+        # Show what the reply would be
+        reply_to_own_post(None, None, test_mode=True)
+        print()
+        
         print("✅ Test complete! Run without --test flag to actually post.")
         return
     
