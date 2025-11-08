@@ -13,6 +13,9 @@ import csv
 from datetime import datetime
 from atproto import Client
 import pycountry
+import subprocess
+import tempfile
+from requests.auth import HTTPBasicAuth
 
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -115,7 +118,102 @@ def download_and_extract_dataset():
     
     # Download dataset
     print("⬇️  Downloading movie dataset from Kaggle...")
-    dataset_url = "https://www.kaggle.com/api/v1/datasets/download/abusayed0206/tmdb-movie-of-the-day"
+    kaggle_dataset = "abusayed0206/movie-of-the-day"
+
+    kaggle_username = os.getenv('KAGGLE_USERNAME') or os.getenv('KAGGLE_USER') or None
+    kaggle_key = os.getenv('KAGGLE_KEY') or os.getenv('KAGGLE_API_KEY') or None
+
+    # Helper to run kaggle CLI
+    def try_kaggle_cli():
+        try:
+            # Ensure target dir exists
+            os.makedirs(dataset_dir, exist_ok=True)
+            cmd = ["kaggle", "datasets", "download", "-d", kaggle_dataset, "-p", dataset_dir, "--unzip"]
+            print(f"🔁 Running: {' '.join(cmd)}")
+            subprocess.run(cmd, check=True)
+            return True
+        except Exception as e:
+            print(f"⚠️  kaggle CLI failed: {e}")
+            return False
+
+    # If username/key present, write a temporary kaggle.json to allow kaggle CLI to run
+    kaggle_json_path = None
+    wrote_kaggle_json = False
+    try:
+        if kaggle_username and kaggle_key:
+            home = os.path.expanduser('~')
+            kaggle_dir = os.path.join(home, '.kaggle')
+            os.makedirs(kaggle_dir, exist_ok=True)
+            kaggle_json_path = os.path.join(kaggle_dir, 'kaggle.json')
+            # Only write if it doesn't exist to avoid overwriting user file
+            if not os.path.exists(kaggle_json_path):
+                with open(kaggle_json_path, 'w', encoding='utf-8') as kf:
+                    import json
+                    json.dump({'username': kaggle_username, 'key': kaggle_key}, kf)
+                try:
+                    os.chmod(kaggle_json_path, 0o600)
+                except Exception:
+                    pass
+                wrote_kaggle_json = True
+
+        # Try kaggle CLI first
+        if try_kaggle_cli():
+            print(f"✅ Dataset downloaded/extracted to: {dataset_dir} (via kaggle CLI)")
+            return dataset_dir
+
+        # If CLI not available or failed, try authenticated requests (when creds available)
+        if kaggle_username and kaggle_key:
+            print("🔐 Trying authenticated HTTP download from Kaggle API...")
+            dataset_url = f"https://www.kaggle.com/api/v1/datasets/download/{kaggle_dataset}"
+            try:
+                response = requests.get(dataset_url, auth=HTTPBasicAuth(kaggle_username, kaggle_key), timeout=60)
+                response.raise_for_status()
+
+                zip_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "dataset_movies.zip")
+                with open(zip_path, 'wb') as f:
+                    f.write(response.content)
+
+                print(f"✅ Downloaded dataset: {len(response.content)} bytes")
+                print("📦 Extracting dataset...")
+                os.makedirs(dataset_dir, exist_ok=True)
+                with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                    zip_ref.extractall(dataset_dir)
+                os.remove(zip_path)
+                print(f"✅ Dataset extracted to: {dataset_dir}")
+                return dataset_dir
+            except Exception as e:
+                print(f"⚠️  Authenticated HTTP download failed: {e}")
+
+        # Last resort: unauthenticated HTTP GET (may return HTML or fail)
+        print("🔁 Falling back to unauthenticated HTTP download (may fail for private datasets)")
+        dataset_url = f"https://www.kaggle.com/api/v1/datasets/download/{kaggle_dataset}"
+        try:
+            response = requests.get(dataset_url, timeout=60)
+            response.raise_for_status()
+            zip_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "dataset_movies.zip")
+            with open(zip_path, 'wb') as f:
+                f.write(response.content)
+
+            print(f"✅ Downloaded dataset: {len(response.content)} bytes")
+            print("📦 Extracting dataset...")
+            os.makedirs(dataset_dir, exist_ok=True)
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(dataset_dir)
+            os.remove(zip_path)
+            print(f"✅ Dataset extracted to: {dataset_dir}")
+            return dataset_dir
+        except Exception as e:
+            print(f"❌ Error downloading/extracting dataset: {e}")
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
+    finally:
+        # Clean up temporary kaggle.json if we wrote it
+        try:
+            if wrote_kaggle_json and kaggle_json_path and os.path.exists(kaggle_json_path):
+                os.remove(kaggle_json_path)
+        except Exception:
+            pass
     
     try:
         response = requests.get(dataset_url, timeout=60)
