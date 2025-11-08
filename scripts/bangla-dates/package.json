@@ -1,0 +1,27 @@
+{
+  "name": "bangla-date-bluesky",
+  "version": "1.0.0",
+  "description": "Generate Bangla date images and post to Bluesky",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js"
+  },
+  "keywords": [
+    "bangla",
+    "bengali",
+    "date",
+    "calendar",
+    "bluesky"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@atproto/api": "^0.13.16",
+    "bangla-calendar": "^7.0.0",
+    "canvas": "^2.11.2",
+    "dotenv": "^16.4.7",
+    "sharp": "^0.33.5"
+  }
+}

@@ -5,7 +5,7 @@ Generates a dark-themed image with Bangla date information and posts to Bluesky
 
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from PIL import Image, ImageDraw, ImageFont
 import bangla
 from dotenv import load_dotenv
@@ -71,17 +71,31 @@ def load_fonts():
 def get_bangla_date_info():
     """
     Get today's Bangla date information
+    Converts UTC+0 system time to Bangladesh time (UTC+6)
     """
-    # Get today's date
-    today = datetime.now()
+    # Get current UTC time
+    utc_now = datetime.now(timezone.utc)
     
-    # Get Bangla date with ordinal
-    bangla_date = bangla.get_date(today.day, today.month, today.year, ordinal=True)
+    # Convert to Bangladesh time (UTC+6)
+    bd_timezone = timezone(timedelta(hours=6))
+    bd_now = utc_now.astimezone(bd_timezone)
+    
+    # Get Bangla date using day, month, year from Bangladesh time
+    bangla_date = bangla.get_date(bd_now.day, bd_now.month, bd_now.year)
+    
+    # Get Bangla date with ordinal for display
+    bangla_date_ordinal = bangla.get_date(bd_now.day, bd_now.month, bd_now.year, ordinal=True)
     
     # Get English date for reference
-    english_date = today.strftime("%d %B %Y")
+    english_date = bd_now.strftime("%d %B %Y")
     
-    return bangla_date, english_date, today
+    # Merge the ordinal date info with the base date info (for 'date' field with ordinal)
+    # Use ordinal version for 'date' field, keep other fields from base
+    bangla_date_info = bangla_date.copy()
+    if 'date' in bangla_date_ordinal:
+        bangla_date_info['date'] = bangla_date_ordinal['date']
+    
+    return bangla_date_info, english_date, bd_now
 
 
 def get_profile_info():

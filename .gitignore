@@ -186,3 +186,8 @@ cython_debug/
 test_setup.py
 GITHUB_ACTIONS_SETUP.md
 BLUESKY_POST_FORMAT.md
+scripts/bangla-dates/MIGRATION_SUMMARY.md
+scripts/bangla-dates/QUICKSTART.md
+scripts/bangla-dates/README.md
+scripts/bangla-dates/STYLE_COMPARISON.md
+scripts/bangla-dates/UPLOAD_GUIDE.md
