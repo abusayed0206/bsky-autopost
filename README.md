@@ -2,6 +2,11 @@
 
 Automated scripts to fetch and post beautiful wallpapers and Bangla date images to Bluesky from various Microsoft sources and cultural data.
 
+## 📊 Bluesky Account Stats
+
+<!-- BSKY-STATS:START -->
+<!-- BSKY-STATS:END -->
+
 ## 📜 Scripts
 
 ### 🗓️ Bangla Date (`bangla_date_bluesky.py`)
