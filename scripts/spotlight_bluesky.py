@@ -78,8 +78,24 @@ def compress_image(image_data, max_size=MAX_IMAGE_SIZE, quality=100):
                 print(f"   ✅ Reduced quality to {quality_level}%: {len(image_data)} → {len(compressed_data)} bytes")
                 return compressed_data
         
-        # If still too large at 20% quality, return best effort and warn
-        print(f"   ❌ Warning: Image still {len(compressed_data)} bytes at 20% quality (limit: {max_size} bytes)")
+        # If still too large at 20% quality, start downscaling the resolution
+        print(f"   ⚠️  Warning: Image still {len(compressed_data)} bytes at 20% quality, reducing resolution...")
+        scale = 0.9
+        while len(compressed_data) > max_size and scale > 0.1:
+            new_size = (int(img.width * scale), int(img.height * scale))
+            # Use Resampling.LANCZOS if available, else ANTIALIAS for older Pillow versions
+            resample_filter = getattr(Image, 'Resampling', Image).LANCZOS if hasattr(getattr(Image, 'Resampling', Image), 'LANCZOS') else Image.ANTIALIAS
+            resized_img = img.resize(new_size, resample_filter)
+            
+            output = BytesIO()
+            # Set quality back slightly higher, since resolution takes the hit
+            resized_img.save(output, format='JPEG', quality=40, optimize=True)
+            compressed_data = output.getvalue()
+            
+            print(f"   Resized to {new_size[0]}x{new_size[1]}: {len(compressed_data)} bytes")
+            scale -= 0.1
+
+        print(f"   ✅ Final compressed size: {len(compressed_data)} bytes")
         return compressed_data
         
     except Exception as e:
