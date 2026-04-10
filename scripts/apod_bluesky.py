@@ -87,7 +87,8 @@ def fetch_apod_data():
     api_url = f"https://api.nasa.gov/planetary/apod?api_key={api_key}&thumbs=true"
     
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': 'curl/8.5.0',
+        'Accept': '*/*'
     }
     
     for attempt in range(3):
@@ -120,8 +121,8 @@ def fetch_apod_data():
 def download_image(url):
     """Download the image from URL"""
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8'
+        'User-Agent': 'curl/8.5.0',
+        'Accept': '*/*'
     }
     try:
         response = requests.get(url, headers=headers, timeout=60)
