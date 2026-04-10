@@ -1,0 +1,56 @@
+name: Test NASA API Connectivity
+
+on:
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  test-connection:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Get GitHub Action IP Address
+      run: curl -s https://httpbin.org/ip
+      
+    - name: Test NASA API with cURL (Default)
+      run: |
+        echo "Testing with default curl user-agent..."
+        curl -v -m 15 "https://api.nasa.gov/planetary/apod?api_key=${{ secrets.NASA_API_KEY || 'DEMO_KEY' }}" || echo "cURL failed"
+        
+    - name: Test NASA API with cURL (Browser User-Agent)
+      run: |
+        echo "Testing with browser user-agent..."
+        curl -v -m 15 -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" "https://api.nasa.gov/planetary/apod?api_key=${{ secrets.NASA_API_KEY || 'DEMO_KEY' }}" || echo "cURL failed"
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: pip install requests
+
+    - name: Test NASA API with Python Requests
+      env:
+        NASA_API_KEY: ${{ secrets.NASA_API_KEY || 'DEMO_KEY' }}
+      run: |
+        python -c "
+        import requests, sys, os
+        print('Testing Python requests to NASA API...')
+        api_key = os.environ.get('NASA_API_KEY', 'DEMO_KEY')
+        url = f'https://api.nasa.gov/planetary/apod?api_key={api_key}&thumbs=true'
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+        
+        try:
+            print(f'Sending GET request to NASA API...')
+            response = requests.get(url, headers=headers, timeout=15)
+            print(f'Status Code: {response.status_code}')
+            print(f'Response Headers: \n{response.headers}')
+            if response.status_code != 200:
+                print(f'Response content: {response.text[:500]}')
+            else:
+                print('✅ Connection successful!')
+                print('Content snippet:', response.text[:200])
+        except Exception as e:
+            print(f'❌ Connection failed: {e}')
+            sys.exit(1)
+        "
