@@ -86,28 +86,45 @@ def fetch_apod_data():
     api_key = os.environ.get('NASA_API_KEY', 'DEMO_KEY')
     api_url = f"https://api.nasa.gov/planetary/apod?api_key={api_key}&thumbs=true"
     
-    try:
-        response = requests.get(api_url, timeout=30)
-        response.raise_for_status()
-        data = response.json()
-        
-        return {
-            'title': data.get('title', 'Unknown Title'),
-            'explanation': data.get('explanation', ''),
-            'url': data.get('hdurl') or data.get('url'),
-            'thumbnail_url': data.get('thumbnail_url'),
-            'media_type': data.get('media_type', 'image'),
-            'copyright': data.get('copyright'),
-            'date': data.get('date')
-        }
-    except Exception as e:
-        print(f"Error fetching NASA API: {e}")
-        sys.exit(1)
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    }
+    
+    for attempt in range(3):
+        try:
+            response = requests.get(api_url, headers=headers, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            
+            return {
+                'title': data.get('title', 'Unknown Title'),
+                'explanation': data.get('explanation', ''),
+                'url': data.get('hdurl') or data.get('url'),
+                'thumbnail_url': data.get('thumbnail_url'),
+                'media_type': data.get('media_type', 'image'),
+                'copyright': data.get('copyright'),
+                'date': data.get('date')
+            }
+        except requests.exceptions.HTTPError as e:
+            if response.status_code == 503 and attempt < 2:
+                print(f"⚠️ 503 Service Unavailable, retrying ({attempt+1}/3)...")
+                import time
+                time.sleep(5)
+                continue
+            print(f"Error fetching NASA API: {e}")
+            sys.exit(1)
+        except Exception as e:
+            print(f"Error fetching NASA API: {e}")
+            sys.exit(1)
 
 def download_image(url):
     """Download the image from URL"""
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8'
+    }
     try:
-        response = requests.get(url, timeout=60)
+        response = requests.get(url, headers=headers, timeout=60)
         response.raise_for_status()
         image_data = response.content
         
