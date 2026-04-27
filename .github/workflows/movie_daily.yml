@@ -2,29 +2,29 @@ name: Daily Movie of the Day
 
 on:
   schedule:
-    # Run 2 times daily at random intervals (UTC)
-    - cron: '30 6 * * *'   # 6:30 AM UTC (morning post - AM movies 1-4)
-    - cron: '30 18 * * *'  # 6:30 PM UTC (evening post - PM movies 5-8)
-  workflow_dispatch:  # Allow manual trigger
+    # Run 2 times daily at fixed intervals (UTC)
+    - cron: '30 6 * * *'   # Morning post
+    - cron: '30 18 * * *'  # Evening post
+  workflow_dispatch:
 
 jobs:
   post-movie:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests atproto pycountry pillow kaggle
-      
+
       - name: Run Movie script
         env:
           BSKY_USERNAME: ${{ secrets.BSKY_USERNAME }}
@@ -34,11 +34,22 @@ jobs:
           POST_TO_BLUESKY: 'true'
         run: |
           python scripts/movie_bluesky.py
-      
+
+      # 🔧 FIX: sanitize filenames (remove invalid characters like :)
+      - name: Sanitize filenames
+        if: always()
+        run: |
+          mkdir -p output_clean
+          for f in output/*.jpg; do
+            fname=$(basename "$f")
+            clean_name=$(echo "$fname" | sed 's/[:<>|*?"\r\n]/_/g')
+            cp "$f" "output_clean/$clean_name"
+          done
+
       - name: Upload generated posters
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: movie-posters
-          path: output/poster_*.jpg
+          path: output_clean/*.jpg
           retention-days: 7
