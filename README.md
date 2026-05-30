@@ -8,10 +8,10 @@ Automated scripts to fetch and post beautiful wallpapers and Bangla date images 
 | Stat | Value |
 |------|-------|
 | 🔗 Profile | [sayed.app](https://bsky.app/profile/sayed.app) |
-| 📝 Posts | 3,038 |
+| 📝 Posts | 3,052 |
 | 👥 Followers | 30 |
 | 👤 Following | 9 |
-| 🕒 Last Updated | 2026-05-29 04:24 UTC |
+| 🕒 Last Updated | 2026-05-30 04:09 UTC |
 <!-- BSKY-STATS:END -->
 
 ## 📜 Scripts
