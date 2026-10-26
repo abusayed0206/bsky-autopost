@@ -84,7 +84,12 @@ def compress_image(image_data, max_size=MAX_IMAGE_SIZE):
 def fetch_apod_data():
     """Fetch APOD image info from NASA API"""
     api_key = os.environ.get('NASA_API_KEY', 'DEMO_KEY')
-    api_url = f"https://api.nasa.gov/planetary/apod?api_key={api_key}&thumbs=true"
+    # The no-date "latest" endpoint keeps returning 500; asking for the date explicitly works.
+    # APOD dates follow US Eastern time.
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    apod_date = datetime.now(ZoneInfo('America/New_York')).date().isoformat()
+    api_url = f"https://api.nasa.gov/planetary/apod?api_key={api_key}&thumbs=true&date={apod_date}"
     
     headers = {
         'User-Agent': 'curl/8.5.0',
@@ -107,10 +112,10 @@ def fetch_apod_data():
                 'date': data.get('date')
             }
         except requests.exceptions.HTTPError as e:
-            if response.status_code == 503 and attempt < 2:
-                print(f"⚠️ 503 Service Unavailable, retrying ({attempt+1}/3)...")
+            if response.status_code >= 500 and attempt < 2:
+                print(f"⚠️ {response.status_code} from NASA API, retrying ({attempt+1}/3)...")
                 import time
-                time.sleep(5)
+                time.sleep(10)
                 continue
             print(f"Error fetching NASA API: {e}")
             sys.exit(1)
@@ -233,6 +238,11 @@ def main():
     apod_data = fetch_apod_data()
     
     img_url = apod_data['url'] if apod_data['media_type'] == 'image' else apod_data['thumbnail_url']
+    # Since APOD moved to science.nasa.gov the API sometimes returns a placeholder (title "NASA Science",
+    # NASA logo as image); skip the day instead of posting the logo.
+    if apod_data['title'] == 'NASA Science' or (img_url and 'nasa-logo' in img_url):
+        print(f"⚠️ NASA API returned a placeholder for {apod_data['date']} ({img_url}); skipping today's post.")
+        return
     if not img_url:
         print("❌ No valid image or thumbnail found.")
         sys.exit(1)
